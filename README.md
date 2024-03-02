@@ -1,1 +1,1 @@
-# osint-automation
+# OSINT Automation Tool
