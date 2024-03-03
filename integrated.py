@@ -1,7 +1,12 @@
 import streamlit as st
 import requests
+import pandas as pd
 import re
 
+# Load SSL blacklist data
+df_ssl = pd.read_csv('sslblacklist.csv')
+
+# Function to query Blocklist.de for IP addresses
 def query_blocklist(ip_address):
     base_url = 'http://api.blocklist.de/api.php'
     params = {'ip': ip_address}
@@ -12,6 +17,7 @@ def query_blocklist(ip_address):
     else:
         return f"Error: {response.status_code}\n{response.text}"
 
+# Function to check CINS Score blacklist for IP addresses
 def check_cins_blacklist(ip_address):
     try:
         cins_url = "https://cinsscore.com/list/ci-badguys.txt"
@@ -25,6 +31,7 @@ def check_cins_blacklist(ip_address):
     except requests.exceptions.RequestException as e:
         return f"Error fetching CINS Score data: {e}"
 
+# Function to get information about an IP address
 def get_ip_info(ip_address):
     try:
         url = f"https://api.facha.dev/v1/ip/{ip_address}"
@@ -36,6 +43,7 @@ def get_ip_info(ip_address):
     except requests.exceptions.RequestException as e:
         return f"Error fetching data: {e}"
 
+# Function to check if an email is a temporary one
 def check_temporary_email(domain):
     try:
         url = f"https://api.facha.dev/v1/temporary-email/{domain}"
@@ -47,26 +55,39 @@ def check_temporary_email(domain):
     except requests.exceptions.RequestException as e:
         return f"Error fetching data: {e}"
 
+# Function to validate IP address
 def validate_ip(ip):
     ip_pattern = r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
     return re.match(ip_pattern, ip) is not None
 
+# Function to validate email address
 def validate_email(email):
     email_pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
     return re.match(email_pattern, email) is not None
 
+# Function to validate SHA1 hash
+def validate_sha1(sha1):
+    sha1_pattern = r"^[a-fA-F0-9]{40}$"
+    return re.match(sha1_pattern, sha1) is not None
+
 # Streamlit GUI
-st.title("Information Query")
+st.title("OSINT Query Tool")
 
-input_value = st.text_input('Enter Email Address or IP Address')
+# Input field for user query
+query_input = st.text_input("Enter IP Address, Email Address, or SHA1 Hash")
 
+# Button to trigger the query
 if st.button('Query'):
-    if input_value:
-        if validate_ip(input_value):
-            ip_address = input_value
+    if query_input:
+        if validate_ip(query_input):
+            # IP Address query
+            ip_address = query_input
             blocklist_result = query_blocklist(ip_address)
             cins_result = check_cins_blacklist(ip_address)
             ip_info = get_ip_info(ip_address)
+
+            st.subheader("IP Address Query Result:")
+            st.write(f"IP Address: {ip_address}")
 
             st.subheader("Blocklist.de Result:")
             if blocklist_result:
@@ -96,10 +117,14 @@ if st.button('Query'):
             else:
                 st.write("No data available")
 
-        elif validate_email(input_value):
-            email = input_value
+        elif validate_email(query_input):
+            # Email Address query
+            email = query_input
             domain = email.split("@")[-1]
             api_data = check_temporary_email(domain)
+
+            st.subheader("Email Address Query Result:")
+            st.write(f"Email Address: {email}")
 
             if api_data:
                 temporary = api_data["temporary"]
@@ -110,7 +135,23 @@ if st.button('Query'):
                     st.write(f"The email address '{email}' is not a temporary email.")
             else:
                 st.write("Error fetching data")
+
+        elif validate_sha1(query_input):
+            # SHA1 Hash query
+            sha1_hash = query_input
+            result = df_ssl[df_ssl['SHA1'] == sha1_hash]
+            st.subheader("SHA1 Hash Query Result:")
+            st.write(f"SHA1 Hash: {sha1_hash}")
+
+            if not result.empty:
+                listing_date = result.iloc[0]['Listingdate']
+                listing_reason = result.iloc[0]['Listingreason']
+                st.write(f'Listing Date: {listing_date}')
+                st.write(f'Listing Reason: {listing_reason}')
+            else:
+                st.write('No matching SHA1 found.')
+
         else:
-            st.write("Invalid input. Please enter a valid Email Address or IP Address")
+            st.write("Invalid input. Please enter a valid IP Address, Email Address, or SHA1 Hash.")
     else:
-        st.write("Please enter a valid input")
+        st.write("Please enter a query.")
