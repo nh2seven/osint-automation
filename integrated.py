@@ -70,11 +70,21 @@ def validate_sha1(sha1):
     sha1_pattern = r"^[a-fA-F0-9]{40}$"
     return re.match(sha1_pattern, sha1) is not None
 
+# Function to query SHA1 information from CSV
+def query_sha1_from_csv(sha1_hash):
+    result = df_ssl[df_ssl['SHA1'] == sha1_hash]
+    if not result.empty:
+        listing_date = result.iloc[0]['Listingdate']
+        listing_reason = result.iloc[0]['Listingreason']
+        return f"Listing Date: {listing_date}\nListing Reason: {listing_reason}"
+    else:
+        return "No matching SHA1 found in the CSV."
+
 # Streamlit GUI
-st.title("OSINT Query Tool")
+st.title("Data Query Tool")
 
 # Input field for user query
-query_input = st.text_input("Enter IP Address, Email Address, or SHA1 Hash")
+query_input = st.text_input("Enter Data:")
 
 # Button to trigger the query
 if st.button('Query'):
@@ -139,19 +149,11 @@ if st.button('Query'):
         elif validate_sha1(query_input):
             # SHA1 Hash query
             sha1_hash = query_input
-            result = df_ssl[df_ssl['SHA1'] == sha1_hash]
+            sha1_result = query_sha1_from_csv(sha1_hash)
             st.subheader("SHA1 Hash Query Result:")
-            st.write(f"SHA1 Hash: {sha1_hash}")
-
-            if not result.empty:
-                listing_date = result.iloc[0]['Listingdate']
-                listing_reason = result.iloc[0]['Listingreason']
-                st.write(f'Listing Date: {listing_date}')
-                st.write(f'Listing Reason: {listing_reason}')
-            else:
-                st.write('No matching SHA1 found.')
+            st.write(sha1_result)
 
         else:
-            st.write("Invalid input. Please enter a valid IP Address, Email Address, or SHA1 Hash.")
+            st.write("Invalid input. Please enter a valid IP Address, Email Address, SHA1 Hash, or ICAO Hex Code.")
     else:
         st.write("Please enter a query.")
